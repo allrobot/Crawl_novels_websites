@@ -8,19 +8,20 @@ import cchardet
 import requests
 from bs4 import BeautifulSoup
 
-encoding=''
+encoding = ''
 
-sensitive_words=[]
-with open('敏感词.TXT','r',encoding='utf-8') as f:
+sensitive_words = []
+with open('敏感词.TXT', 'r', encoding='utf-8') as f:
     [sensitive_words.append(word[:-1]) for word in f.readlines()]
 
 index = 'https://www.cool18.com/bbs4/'
 
+
 # 含有敏感词，返回False
 def check_sensitive(input):
-    if re.search('(.*?)(作者|送达者)',input):
+    if re.search('(.*?)(作者|送达者)', input):
         for sensitive_word in sensitive_words:
-            if sensitive_word in re.search('(.*?)作者',input).group(1):
+            if sensitive_word in re.search('(.*?)作者', input).group(1):
                 return False
     else:
         for sensitive_word in sensitive_words:
@@ -28,8 +29,9 @@ def check_sensitive(input):
                 return False
     return True
 
+
 # 去除非法字符
-def rmsc (string):
+def rmsc(string):
     string = string.replace('\\', ' - ')
     string = string.replace('/', ' - ')
     string = string.replace(':', '：')
@@ -45,16 +47,18 @@ def rmsc (string):
     string = string.strip()
     return string
 
+
 # 正文去掉网页元素
 def remove_html(text):
-    text=re.sub(r'<font(.*?)font>','',text)
+    text = re.sub(r'<font(.*?)font>', '', text)
     text = re.sub(r'<br/>', '\n', text)
     text = re.sub(r'<p>', '\n', text)
     text = re.sub(r'</p>', '\n', text)
     text = re.sub(r'<b>(.*?)</b>', '\n', text)
-    text=text.replace("<pre>",'')
-    text=text.replace("</pre>",'')
+    text = text.replace("<pre>", '')
+    text = text.replace("</pre>", '')
     return text
+
 
 # 重复文件返回文件副本名
 def return_copy_name(name):
@@ -74,43 +78,47 @@ def return_copy_name(name):
                 num += 1
     return name
 
+
 # 返回请求的网页元素
 def request_url_source_code(url):
     HEADER = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:106.0)'
                       ' Gecko/20100101 Firefox/106.0',
     }
-    num=0
-    while num<30:
-        num+=1
+    num = 0
+    while num < 30:
+        num += 1
         try:
             r = requests.get(url, headers=HEADER)
             global encoding
             encoding = cchardet.detect(r.content)['encoding']
             return BeautifulSoup(r.text, 'lxml')
         except:
-            if num==30:
+            if num == 30:
                 traceback.print_exc()
                 print('超过最大重连次数')
                 sys.exit()
+            print(url + ' 获取失败，正在重连...')
             time.sleep(10 * num)
-        print(url+' 获取失败，正在重连...')
 
-exclude_links=[]
+
+exclude_links = []
+
 
 # 获取最新的最大文章数量
 def get_max_num():
-    num=request_url_source_code(index)
-    limit_num =num.select_one('#d_list > ul > li > a:nth-child(1)>font[color="grey"]').parent['href']
-    limit_num=int(re.search('tid\=(.*?)$',limit_num).group(1).strip())
+    num = request_url_source_code(index)
+    limit_num = num.select_one('#d_list > ul > li > a:nth-child(1)>font[color="grey"]').parent['href']
+    limit_num = int(re.search('tid\=(.*?)$', limit_num).group(1).strip())
     return limit_num
 
-if __name__ == '__main__':
-    max_num=get_max_num()
 
-    num = 2
+if __name__ == '__main__':
+    max_num = get_max_num()
+
+    num = 1
     # 一直爬到最新的小说...
-    while num<max_num:
+    while num < max_num:
         Current_url = 'https://www.cool18.com/bbs4/index.php?app=forum&act=threadview&tid=' + str(num)
         num += 1
         # 如果网址已经加载过了，后缀加1
@@ -165,7 +173,7 @@ if __name__ == '__main__':
                         # 该页面字数较多，存为txt文件
                         if Valid:
                             if follow_up_links:
-                                follow_up_links=follow_up_links[::-1]
+                                follow_up_links = follow_up_links[::-1]
                                 bracket_exist = re.search('(.*?)(\(|（)(.*?)(\)|）)(.*?).txt', article_filename)
                                 if bracket_exist:
                                     article_filename = bracket_exist.group(1) + bracket_exist.group(5) + '.txt'
@@ -195,25 +203,15 @@ if __name__ == '__main__':
                                     filepath = '禁忌书屋/' + return_copy_name(rmsc(article_filename))
                                     with open(filepath, 'w', encoding=encoding, errors='ignore') as f:
                                         f.write(text)
-                                        print(Current_url, '已收集，最大页面：', max_num)
+                                        print(Current_url, '爬取完毕，还有',
+                                              str(max_num - int(
+                                                  re.search('tid\=(.*?)$', Current_url).group(1).strip())), '页')
 
                             else:
                                 with open(filepath, 'w', encoding=encoding, errors='ignore') as f:
                                     f.write(text)
-                                print(Current_url,'已收集，最大页面：',max_num)
+                                print(Current_url, '爬取完毕，还有',
+                                      str(max_num - int(re.search('tid\=(.*?)$', Current_url).group(1).strip())), '页')
         except:
             traceback.print_exc()
             print(Current_url)
-
-
-
-
-
-
-
-
-
-
-
-
-
