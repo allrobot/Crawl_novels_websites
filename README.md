@@ -32,3 +32,16 @@ python Collection_14_today_novel.py
 ```CONSOLE
 python Collection_Complete_novel.py
 ```
+
+>请控制main()函数的`semaphore_num = 50`并发数量，避免频繁访问堵塞服务器，导致封IP
+>请放在24小时运行的电脑/服务器使用该脚本，每次同时访问50个请求，预计9天下载完成
+
+>必须指定Proxy，main()的proxy变量指定为你的代理服务器地址，格式`http://127.0.0.1:7890`，如果网络无需代理即可正常访问禁忌书屋，请手动删除脚本的所有proxy变量
+>查看代理服务器地址，如果你已安装clash，在主页上方可以看到端口
+
+![image](https://user-images.githubusercontent.com/43485379/223296700-df9e0402-4c02-4688-80a8-cfc22e691022.png)
+
+运行图：
+![image](https://user-images.githubusercontent.com/43485379/223296808-fe8e4db3-96a0-4ab2-9c5a-a0b58ae4ceae.png)
+
+
