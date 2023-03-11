@@ -16,6 +16,12 @@ else:
         sensitive_words = f'({f.read()})'.replace('\n', '|').replace('||', '')
         sensitive_words = re.sub('\|\|$', '', sensitive_words)
 
+# 含有敏感词，返回False
+async def check_sensitive(input):
+    if re.search(f'(.*?){sensitive_words}(.*?)(作者|送达者|$)', input):
+        return False
+    else:
+        return True
 
 # 去除非法字符
 async def del_illegal_words(string):
@@ -37,33 +43,29 @@ async def del_illegal_words(string):
 
 # 正文去掉网页元素
 async def remove_html(text):
-    text = re.sub(r'<font(.*?)font>', '', text)
+    text = re.sub(r'<font([^\t]*)font>', '', text)
     # text = re.sub(r'<center(.*?)center>', '', text)
     text = re.sub(r'<br/>', '\n', text)
-    text = re.sub(r'<p>', '\n', text)
+    text = re.sub(r'<p(.*?)>', '\n', text)
     text = re.sub(r'</p>', '\n', text)
     text = re.sub(r'<b>(.*?)</b>', '\n', text)
     text = text.replace("<pre>", '')
+    text = text.replace("<i>", '')
     text = text.replace("</pre>", '')
     return text
 
 
-# 含有敏感词，返回False
-async def check_sensitive(input):
-    if re.search(f'(.*?){sensitive_words}(.*?)(作者|送达者|$)', input):
-        return False
-    else:
-        return True
 
 
 # 返回文件副本名
 async def copy_name(filename):
     num = 0
     while os.path.exists(filename):
-        copy_num = re.search('(.*?)（(.*?)）.txt', filename)
+        copy_num = re.search('(.*?) - 副本（(.*?)）.txt', filename)
         num += 1
         if copy_num:
             if copy_num.group(2).isnumeric():
+                num=int(copy_num.group(2))+1
                 filename = copy_num.group(1) + ' - 副本（' + str(num) + '）.txt'
             else:
                 filename = filename[:-4] + ' - 副本（' + str(num) + '）.txt'
@@ -87,7 +89,7 @@ async def write_file(filename, content):
                 if not similarity_ratio >= 95:
                     newname = await copy_name(filename)
                     # await loop.run_in_executor(None, os.rename, filename, newname)
-                    async with aiofiles.open(newname, 'w', errors='ignore') as file:
+                    async with aiofiles.open(newname, 'w', encoding='utf-8', errors='ignore') as file:
                         await file.write(content)
                         return True
                 else:
@@ -118,10 +120,10 @@ async def processing_data(html, new_dir_name,byte,del_bracket,index,Currect_tid)
             link = Currect_tid
             tid_num=int(re.search('=\d+',link).group(0)[1:])
             first_pre_article_content = await remove_html(str(content[0])) + '\n'
-            article_name = html.select('td.show_content>center>font')[0].text
+            article_name = await del_illegal_words(html.select('td.show_content>center>font')[0].text)
             # 检测文章名是否包含敏感词
             if await check_sensitive(article_name):
-                article_filename = new_dir_name+'\\'+(await del_illegal_words(article_name)) + '.txt'
+                article_filename = new_dir_name+'\\'+article_name + '.txt'
                 valid = False
                 if len(first_pre_article_content) > 0:
                     valid = True
@@ -130,7 +132,7 @@ async def processing_data(html, new_dir_name,byte,del_bracket,index,Currect_tid)
                     for li in follow_up:  # 遍历回帖，记录较多字符的回帖
                         new_a = li.select_one('a')
                         # 检查文章大小
-                        if int(byte.search(new_a.next_sibling).group(0)) > 10000:
+                        if int(byte.search(new_a.next_sibling).group(1)) > 10000:
                             valid = True
                             if await check_sensitive(str(new_a.text)):
                                 new_ = []
@@ -142,7 +144,7 @@ async def processing_data(html, new_dir_name,byte,del_bracket,index,Currect_tid)
                                 except:
                                     pass
                 else:
-                    if len(first_pre_article_content) < 1500:  # 字数少，跳过
+                    if len(first_pre_article_content) < 2000:  # 字数少，跳过
                         valid = False
 
                 # 该页面字数较多，存为txt文件
@@ -153,9 +155,9 @@ async def processing_data(html, new_dir_name,byte,del_bracket,index,Currect_tid)
                     if follow_up_links:
                         follow_up_links = follow_up_links[::-1]
                         # 重命名文章名，整合文章的小说名总不能带（1）之类的字
-                        bracket_exist = del_bracket.search(article_filename)
-                        if bracket_exist:
-                            article_filename = bracket_exist.group(1) + bracket_exist.group(5) + '.txt'
+                        # bracket_exist = del_bracket.search(article_filename)
+                        # if bracket_exist:
+                        #     article_filename = bracket_exist.group(1) + bracket_exist.group(5) + '.txt'
                         # 打开回帖，将文章内容加到列表中
                         for article_link in follow_up_links:
                             follow_up_file=str(re.search('\d+',article_link[1]).group(0))+'.html'
@@ -188,16 +190,14 @@ async def processing_data(html, new_dir_name,byte,del_bracket,index,Currect_tid)
                         file = await write_file(article_filename, text)
 
                         if not file:
-                            print(' '*100,end='\r',flush=True)
                             print(
                                 f'【{str(datetime.datetime.now())[:16]}】：tid={tid_num} 保存过了 '
-                                f'无需保存 {article_name}',end='\r',flush=True
+                                f'无需保存 {article_name}'
                             )
                         else:
-                            print(' '*100,end='\r',flush=True)
                             print(
                                 f'【{str(datetime.datetime.now())[:16]}】：tid={tid_num} 已保存 '
-                                f'已保存 {article_name}',end='\r',flush=True
+                                f' {article_name}'
                             )
                         # os.exit(0)
     except:
@@ -238,7 +238,7 @@ async def consumer(file_name,new_dir_name,semaphore,byte,del_bracket,index):
 
 
 async def consumers(concurrency_num: int,new_dir_name):
-    byte = re.compile('\d+')
+    byte = re.compile('\((\d+) bytes\)')
     del_bracket = re.compile('(.*?)(\(|（)(.*?)(\)|）)(.*?)$')
     index = 'https://www.cool18.com/bbs4/'
 
@@ -259,8 +259,8 @@ async def consumers(concurrency_num: int,new_dir_name):
 
 
 async def main():
-    # 限制并行访问量
-    concurrency_num = 3000
+    # 限制并行访问量为100
+    concurrency_num = 1000
 
     new_dir_name=f'禁忌书屋小说 {str(datetime.datetime.now())[:10]}'
     if not os.path.exists(new_dir_name):
@@ -275,6 +275,24 @@ async def main():
     print(f'【{str(datetime.datetime.now())[:16]}】：目录已创建')
     await consumers(concurrency_num,new_dir_name)
 
+async def main1():
+    # 限制并行访问量为100
+    concurrency_num = 1000
+
+    new_dir_name=f'禁忌书屋小说 {str(datetime.datetime.now())[:10]}'
+    if not os.path.exists(new_dir_name):
+        os.mkdir(new_dir_name)
+    target_path='禁忌书屋'
+    temp_path=r'C:\Users\li\PycharmProjects\禁忌书屋'
+    temp_new_dir=r'C:\Users\li\Downloads\禁忌书屋'
+    if os.path.exists(temp_path):
+        os.chdir(temp_path)
+    else:
+        print('禁忌书屋目录并不存在！请确保你已完整保存禁忌书屋的全部帖子')
+        sys.exit()
+
+    print(f'【{str(datetime.datetime.now())[:16]}】：目录已创建')
+    await consumers(concurrency_num,temp_new_dir)
 
 
 if __name__ == '__main__':
