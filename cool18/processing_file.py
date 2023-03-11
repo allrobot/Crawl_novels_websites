@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import  datetime, random, os, re, traceback, aiofiles, aiohttp, cchardet,asyncio
+import  datetime,  os, re, traceback, aiofiles,  cchardet,asyncio
 import sys
-import time
 
 from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
@@ -253,9 +252,6 @@ async def consumers(concurrency_num: int,new_dir_name):
         tasks.append(consumer(x,new_dir_name,semaphore,byte,index))
 
     await asyncio.gather(*tasks)
-
-
-
 
 
 async def main():

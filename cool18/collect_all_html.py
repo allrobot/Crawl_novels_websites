@@ -86,13 +86,13 @@ async def producers(concurrency_num: int):
     contype = re.compile(r'charset=([\w-]+)')
     
     # 代理服务器
-    proxy = 'http://127.0.0.1:1162'
+    proxy = 'http://127.0.0.1:7890'
     # 禁忌书屋主页
     index_url = 'https://www.cool18.com/bbs4/'
     # file_queue = asyncio.Queue(maxsize=2000)
     print(f'【{str(datetime.datetime.now())[:16]}】：并行访问量限制为{concurrency_num}，队列已创建')
     async with aiohttp.ClientSession() as session:
-        index = 13586499
+        index = 0
         num=0
         semaphore = asyncio.Semaphore(concurrency_num)
         index_url_code=BeautifulSoup((await fetch(session, index_url,contype, proxy=proxy))[1],'lxml')
@@ -104,9 +104,6 @@ async def producers(concurrency_num: int):
         else:
             f'【{str(datetime.datetime.now())[:16]}】：十分钟内未成功连接，请检查网络'
             sys.exit()
-        # lock=[asyncio.Lock() for x in range(concurrency_num*5)]
-        # consumer_task = [asyncio.create_task(consumer(file_queue, lock[_],session, proxy=proxy)) for _ in range(concurrency_num*5)]
-        # consumer_task=asyncio.create_task(consumer(file_queue, session, proxy=proxy))
         tasks = []
         # 创建队列
         for i in range(index, newest_max_num+1):
@@ -116,10 +113,6 @@ async def producers(concurrency_num: int):
             tasks.append(producer( session, url, semaphore, end_num,contype,proxy))
         print(f'【{str(datetime.datetime.now())[:16]}】：爬虫程序开始运行')
         await asyncio.gather(*tasks)
-        # await file_queue.put(None)
-        # await file_queue.join()
-        # [x.cancel() for x in consumer_task]
-        # await asyncio.gather(*consumer_task, return_exceptions=True)
 
 
 async def main():
